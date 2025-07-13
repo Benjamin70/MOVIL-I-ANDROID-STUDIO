@@ -20,10 +20,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             PracticaLabTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    PantallaLogin(modifier = Modifier.padding(innerPadding))
+
                 }
             }
         }
@@ -31,17 +29,17 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun MiPrimerComposable(modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
+        text = "¡Hola, Jetpack Compose!",
         modifier = modifier
     )
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun MiPrimerComposablePreview() {
     PracticaLabTheme {
-        Greeting("Android")
+        MiPrimerComposable()
     }
 }

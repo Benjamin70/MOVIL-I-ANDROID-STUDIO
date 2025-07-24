@@ -10,40 +10,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.planificadorasientos.data.DataRepository
 import com.example.planificadorasientos.data.Student
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentsSection() {
-    var students by remember {
-        mutableStateOf(
-            listOf(
-                Student("2021001", "Luis Gómez", "Ingeniería", "Sistemas"),
-                Student("2021002", "Ana Pérez", "Administración", "Contabilidad"),
-                Student("2021003", "Juan Torres", "Ingeniería", "Industrial"),
-                Student("2021004", "María García", "Medicina", "Medicina General"),
-                Student("2021005", "Carlos Díaz", "Administración", "Mercadeo"),
-                Student("2021006", "Pedro Peña", "Ingeniería", "Electrónica"),
-                Student("2021007", "Lucía Reyes", "Medicina", "Odontología")
-            )
-        )
-    }
-
     var showDialog by remember { mutableStateOf(false) }
     var editingStudent by remember { mutableStateOf<Student?>(null) }
 
-    val allFaculties = students.map { it.faculty }.distinct()
-    val allCareers = students.map { it.career }.distinct()
+    val allFaculties = DataRepository.uniqueFaculties
+    val allCareers = DataRepository.students.map { it.career }.distinct()
 
     var selectedFaculty by remember { mutableStateOf<String?>(null) }
     var selectedCareer by remember { mutableStateOf<String?>(null) }
 
-    val filteredStudents = students.filter {
+    val filteredStudents = DataRepository.students.filter {
         (selectedFaculty == null || it.faculty == selectedFaculty) &&
                 (selectedCareer == null || it.career == selectedCareer)
     }
 
-    // Estructura correcta para scroll funcional
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(24.dp)) {
@@ -105,7 +91,7 @@ fun StudentsSection() {
                                     Icon(Icons.Default.Edit, contentDescription = "Editar")
                                 }
                                 IconButton(onClick = {
-                                    students = students.filterNot { it.id == student.id }
+                                    DataRepository.removeStudentById(student.id)
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                                 }
@@ -116,15 +102,15 @@ fun StudentsSection() {
             }
         }
 
-        // Diálogo para añadir/editar estudiante
         if (showDialog) {
             DialogNuevoEstudiante(
                 initialStudent = editingStudent,
                 onSave = { nuevo ->
-                    students = if (editingStudent == null) {
-                        students + nuevo
+                    if (editingStudent == null) {
+                        DataRepository.addStudent(nuevo)
                     } else {
-                        students.map { if (it.id == nuevo.id) nuevo else it }
+                        DataRepository.removeStudentById(editingStudent!!.id)
+                        DataRepository.addStudent(nuevo)
                     }
                     showDialog = false
                 },

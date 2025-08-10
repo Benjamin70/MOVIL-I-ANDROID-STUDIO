@@ -1,3 +1,4 @@
+// CeremoniesSection.kt
 package com.example.planificadorasientos.ui.sections
 
 import android.app.DatePickerDialog
@@ -14,35 +15,61 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.example.planificadorasientos.data.Ceremony
+import com.example.planificadorasientos.data.DataRepository
 import java.util.*
 
 @Composable
-fun CeremoniesSection() {
-    var ceremonies by remember {
-        mutableStateOf(
-            listOf(
-                Ceremony("1", "Ingeniería", "2025-07-20", "10:00 AM"),
-                Ceremony("2", "Derecho", "2025-07-20", "02:00 PM")
-            )
-        )
-    }
+fun CeremoniesSection(navController: NavController) {
+    // ✅ Fuente única de datos (observable)
+    val ceremonies = DataRepository.ceremonies
 
     var showDialog by remember { mutableStateOf(false) }
     var editingCeremony by remember { mutableStateOf<Ceremony?>(null) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
-    val facultiesList = ceremonies.map { it.faculty }.distinct()
+    val facultiesList = DataRepository.uniqueFaculties
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.CalendarToday, contentDescription = "Gestión", tint = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Gestión de Ceremonias", style = MaterialTheme.typography.headlineSmall)
+        // Header con menú anclado
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CalendarToday, contentDescription = "Gestión", tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Gestión de Ceremonias", style = MaterialTheme.typography.headlineSmall)
+            }
+
+            var menuExpanded by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Menú")
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    offset = DpOffset(0.dp, 4.dp)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Cerrar sesión") },
+                        onClick = {
+                            menuExpanded = false
+                            showLogoutDialog = true
+                        }
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -85,7 +112,7 @@ fun CeremoniesSection() {
                                 Icon(Icons.Default.Edit, contentDescription = "Editar")
                             }
                             IconButton(onClick = {
-                                ceremonies = ceremonies.filterNot { it.id == ceremony.id }
+                                DataRepository.removeCeremonyById(ceremony.id) // ✅ borrar en repo
                             }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                             }
@@ -100,15 +127,33 @@ fun CeremoniesSection() {
         DialogNuevaCeremonia(
             initialCeremony = editingCeremony,
             existingFaculties = facultiesList,
-            onSave = { nuevaCeremonia ->
-                ceremonies = if (editingCeremony == null) {
-                    ceremonies + nuevaCeremonia
+            onSave = { nueva ->
+                if (editingCeremony == null) {
+                    DataRepository.addCeremony(nueva)               // ✅ crear en repo
                 } else {
-                    ceremonies.map { if (it.id == nuevaCeremonia.id) nuevaCeremonia else it }
+                    DataRepository.updateCeremony(nueva)            // ✅ actualizar en repo
                 }
                 showDialog = false
             },
             onCancel = { showDialog = false }
+        )
+    }
+
+    // Confirmación de cerrar sesión
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    navController.navigate("login") { popUpTo(0) }
+                }) { Text("Sí, salir") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancelar") }
+            },
+            title = { Text("Cerrar sesión") },
+            text = { Text("¿Está seguro de que desea cerrar sesión?") }
         )
     }
 }
@@ -135,18 +180,12 @@ fun DialogNuevaCeremonia(
             TextButton(onClick = {
                 val id = initialCeremony?.id ?: System.currentTimeMillis().toString()
                 onSave(Ceremony(id, faculty, date, time))
-            }) {
-                Text("Guardar")
-            }
+            }) { Text("Guardar") }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text("Cancelar")
-            }
+            TextButton(onClick = onCancel) { Text("Cancelar") }
         },
-        title = {
-            Text(if (initialCeremony == null) "Nueva Ceremonia" else "Editar Ceremonia")
-        },
+        title = { Text(if (initialCeremony == null) "Nueva Ceremonia" else "Editar Ceremonia") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 

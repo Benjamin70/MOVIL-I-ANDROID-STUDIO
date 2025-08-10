@@ -60,9 +60,9 @@ fun AdminDashboard(navController: NavHostController) {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
-                0 -> DashboardSection()
-                1 -> CeremoniesSection()
-                2 -> StudentsSection()
+                0 -> DashboardSection(navController)
+                1 -> CeremoniesSection(navController)
+                2 -> StudentsSection(navController)
             }
         }
     }

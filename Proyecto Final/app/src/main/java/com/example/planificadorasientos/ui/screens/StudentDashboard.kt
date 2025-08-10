@@ -3,10 +3,10 @@ package com.example.planificadorasientos.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChairAlt
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.ChairAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,15 +15,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.planificadorasientos.data.DataRepository
+import com.example.planificadorasientos.data.Student
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudentDashboard(navController: NavController) {
+fun StudentDashboard(
+    navController: NavController,
+    studentId: String
+) {
     var showExitDialog by remember { mutableStateOf(false) }
 
-    BackHandler {
-        showExitDialog = true
+    // ===== Estado de búsqueda / alumno seleccionado =====
+    var queryId by remember { mutableStateOf(studentId) }
+    var lookedUp by remember { mutableStateOf(false) }
+    var student by remember {
+        mutableStateOf(
+            DataRepository.students.find { normalizeId(it.id) == normalizeId(studentId) }
+        )
     }
+
+    // si cambia el parámetro de la ruta, actualizamos todo
+    LaunchedEffect(studentId) {
+        queryId = studentId
+        student = DataRepository.students.find { normalizeId(it.id) == normalizeId(studentId) }
+        lookedUp = false
+    }
+
+    BackHandler { showExitDialog = true }
 
     if (showExitDialog) {
         AlertDialog(
@@ -36,15 +55,9 @@ fun StudentDashboard(navController: NavController) {
                     navController.navigate("login") {
                         popUpTo("login") { inclusive = true }
                     }
-                }) {
-                    Text("Sí")
-                }
+                }) { Text("Sí") }
             },
-            dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("No")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showExitDialog = false }) { Text("No") } }
         )
     }
 
@@ -53,12 +66,10 @@ fun StudentDashboard(navController: NavController) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Header
+        // ===== Header =====
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Row(
                 modifier = Modifier
@@ -67,16 +78,14 @@ fun StudentDashboard(navController: NavController) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
                         modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
                             text = "Portal Estudiante",
@@ -84,17 +93,15 @@ fun StudentDashboard(navController: NavController) {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                        val nombre = student?.name?.split(" ")?.firstOrNull() ?: "Estudiante"
                         Text(
-                            text = "Planificador de Asientos",
+                            text = "Hola $nombre, bienvenido",
                             fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                         )
                     }
                 }
-
-                IconButton(
-                    onClick = { showExitDialog = true }
-                ) {
+                IconButton(onClick = { showExitDialog = true }) {
                     Icon(
                         Icons.Default.ExitToApp,
                         contentDescription = "Logout",
@@ -104,100 +111,119 @@ fun StudentDashboard(navController: NavController) {
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // Welcome Message
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
+        // ===== Buscador por ID (filtro) =====
+        OutlinedTextField(
+            value = queryId,
+            onValueChange = { queryId = it },
+            label = { Text("Buscar por ID") },
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                student = DataRepository.students.find { normalizeId(it.id) == normalizeId(queryId) }
+                lookedUp = true
+            },
+            enabled = queryId.isNotBlank(),
+            modifier = Modifier.align(Alignment.End)
+        ) { Text("Consultar") }
+
+        if (lookedUp && student == null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "ID no encontrado",
+                color = MaterialTheme.colorScheme.error
             )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "¡Bienvenido!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Aquí podrás ver tu información de graduación y asiento asignado cuando esté disponible.",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                )
-            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // Action Cards
-        Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        // ===== Tarjeta de "Evento" -> Facultad y Carrera =====
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Event,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                Icon(
+                    Icons.Default.Event,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "Mi Información Académica",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    if (student != null) {
                         Text(
-                            text = "Mi Evento de Graduación",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            text = "Facultad: ${student!!.faculty}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f)
                         )
                         Text(
-                            text = "No hay eventos programados",
+                            text = "Carrera: ${student!!.career}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.9f)
+                        )
+                    } else {
+                        Text(
+                            text = "No se encontró el estudiante",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                         )
                     }
                 }
             }
+        }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+        Spacer(Modifier.height(16.dp))
+
+        // ===== Tarjeta de Asiento =====
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.ChairAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(
+                    Icons.Default.ChairAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "Mi Asiento Asignado",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    if (student != null) {
+                        Text("Nombre: ${student!!.name}")
                         Text(
-                            text = "Mi Asiento Asignado",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Asiento: ${student!!.place ?: "Sin asiento asignado"}",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                         )
+                    } else {
                         Text(
-                            text = "Sin asiento asignado",
+                            text = "—",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -205,31 +231,14 @@ fun StudentDashboard(navController: NavController) {
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Info Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Información Importante",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "• Los asientos se asignarán automáticamente\n• Recibirás una notificación cuando tu asiento esté listo\n• La ceremonia de graduación será presencial",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                )
-            }
-        }
     }
+}
+
+
+private fun normalizeId(raw: String): String {
+    val digits = raw.filter { it.isDigit() }
+    if (digits.length < 5) return digits
+    val year = digits.take(4)
+    val serial = digits.drop(4).padStart(4, '0')
+    return year + serial
 }

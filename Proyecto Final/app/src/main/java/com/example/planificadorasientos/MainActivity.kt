@@ -13,8 +13,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.planificadorasientos.ui.screens.AdminDashboard
 import com.example.planificadorasientos.ui.screens.LoginScreen
+import com.example.planificadorasientos.ui.screens.SplashScreen
 import com.example.planificadorasientos.ui.screens.StudentDashboard
-import com.example.planificadorasientos.ui.theme.PlanificadorAsientosTheme // 👈 Asegúrate de tener este import
+import com.example.planificadorasientos.ui.theme.PlanificadorAsientosTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,16 +39,14 @@ fun PlanificadorAsientosApp() {
 
     NavHost(
         navController = navController,
-        startDestination = "login"
+        startDestination = "splash"    // 👈 volvemos a usar nuestro Splash composable
     ) {
-        composable("login") {
-            LoginScreen(navController = navController)
-        }
-        composable("admin_dashboard") {
-            AdminDashboard(navController = navController)
-        }
-        composable("student_dashboard") {
-            StudentDashboard(navController = navController)
+        composable("splash") { SplashScreen(navController) }
+        composable("login") { LoginScreen(navController = navController) }
+        composable("admin_dashboard") { AdminDashboard(navController = navController) }
+        composable("student_dashboard/{id}") { backStack ->
+            val id = backStack.arguments?.getString("id") ?: ""
+            StudentDashboard(navController = navController, studentId = id)
         }
     }
 }

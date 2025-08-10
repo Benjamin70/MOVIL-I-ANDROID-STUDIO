@@ -7,7 +7,7 @@ object StaticData {
 
     val STUDENTS = listOf(
         Student("2021-0001", "Juan Pérez", "Ingeniería", "Sistemas"),
-        Student("2021-0002", "María García", "Medicina", "Medicina General"),
-        Student("2021-0003", "Carlos López", "Derecho", "Derecho")
+        Student("2021-0002", "María García", "Derecho", "Abogado"),
+        Student("2021-0003", "Carlos López", "Derecho", "Abogado Litigante")
     )
 }

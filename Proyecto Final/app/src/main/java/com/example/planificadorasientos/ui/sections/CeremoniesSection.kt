@@ -1,4 +1,3 @@
-// CeremoniesSection.kt
 package com.example.planificadorasientos.ui.sections
 
 import android.app.DatePickerDialog
@@ -17,29 +16,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.Ceremony
-import com.example.planificadorasientos.data.DataRepository
+import com.example.planificadorasientos.data.model.Ceremony
+import com.example.planificadorasientos.data.model.DataRepository
+import com.example.planificadorasientos.ui.viewmodel.CeremonyViewModel
 import java.util.*
 
 @Composable
 fun CeremoniesSection(navController: NavController) {
-    // ✅ Fuente única de datos (observable)
-    val ceremonies = DataRepository.ceremonies
+    val context = LocalContext.current
+
+    // ViewModel + datos desde Firebase
+    val ceremonyViewModel: CeremonyViewModel = viewModel()
+    val ceremonies by ceremonyViewModel.ceremonies.collectAsState()
+
+    // Cargar datos al iniciar
+    LaunchedEffect(Unit) {
+        ceremonyViewModel.loadCeremonies()
+    }
 
     var showDialog by remember { mutableStateOf(false) }
     var editingCeremony by remember { mutableStateOf<Ceremony?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    // Facultades (tomadas desde DataRepository solo como referencia local)
     val facultiesList = DataRepository.uniqueFaculties
-    val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
     ) {
-        // Header con menú anclado
+        // ===== HEADER =====
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -88,6 +97,7 @@ fun CeremoniesSection(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // ===== LISTA DE CEREMONIAS =====
         LazyColumn(
             modifier = Modifier.fillMaxHeight(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -112,7 +122,7 @@ fun CeremoniesSection(navController: NavController) {
                                 Icon(Icons.Default.Edit, contentDescription = "Editar")
                             }
                             IconButton(onClick = {
-                                DataRepository.removeCeremonyById(ceremony.id) // ✅ borrar en repo
+                                ceremonyViewModel.deleteCeremony(ceremony.id)
                             }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                             }
@@ -123,15 +133,16 @@ fun CeremoniesSection(navController: NavController) {
         }
     }
 
+    // ===== DIALOG NUEVO/EDITAR CEREMONIA =====
     if (showDialog) {
         DialogNuevaCeremonia(
             initialCeremony = editingCeremony,
             existingFaculties = facultiesList,
             onSave = { nueva ->
                 if (editingCeremony == null) {
-                    DataRepository.addCeremony(nueva)               // ✅ crear en repo
+                    ceremonyViewModel.addCeremony(nueva)
                 } else {
-                    DataRepository.updateCeremony(nueva)            // ✅ actualizar en repo
+                    ceremonyViewModel.updateCeremony(nueva)
                 }
                 showDialog = false
             },
@@ -139,7 +150,7 @@ fun CeremoniesSection(navController: NavController) {
         )
     }
 
-    // Confirmación de cerrar sesión
+    // ===== DIALOG LOGOUT =====
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -171,7 +182,6 @@ fun DialogNuevaCeremonia(
     var faculty by remember { mutableStateOf(initialCeremony?.faculty ?: "") }
     var date by remember { mutableStateOf(initialCeremony?.date ?: "") }
     var time by remember { mutableStateOf(initialCeremony?.time ?: "") }
-
     var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -188,7 +198,6 @@ fun DialogNuevaCeremonia(
         title = { Text(if (initialCeremony == null) "Nueva Ceremonia" else "Editar Ceremonia") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
                 // Dropdown Facultad
                 ExposedDropdownMenuBox(
                     expanded = expanded,

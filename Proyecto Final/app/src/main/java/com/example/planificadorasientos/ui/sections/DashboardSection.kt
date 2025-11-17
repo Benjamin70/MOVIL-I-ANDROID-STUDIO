@@ -1,6 +1,5 @@
 package com.example.planificadorasientos.ui.sections
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,48 +11,49 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.planificadorasientos.data.Ceremony
-import com.example.planificadorasientos.data.DataRepository
-import com.example.planificadorasientos.data.Student
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-
-
+import com.example.planificadorasientos.data.model.Ceremony
+import com.example.planificadorasientos.data.model.Student
+import com.example.planificadorasientos.ui.viewmodel.CeremonyViewModel
+import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 
 @Composable
 fun DashboardSection(navController: NavController) {
+    // ===== ViewModels =====
+    val studentViewModel: StudentViewModel = viewModel()
+    val ceremonyViewModel: CeremonyViewModel = viewModel()
 
-    val ceremonyCount by remember { snapshotFlow { DataRepository.ceremonies.size } }
-        .collectAsState(initial = DataRepository.ceremonies.size)
+    val students by studentViewModel.students.collectAsState()
+    val ceremonies by ceremonyViewModel.ceremonies.collectAsState()
 
-    val studentCount by remember { snapshotFlow { DataRepository.students.size } }
-        .collectAsState(initial = DataRepository.students.size)
+    // Cargar datos al iniciar
+    LaunchedEffect(Unit) {
+        studentViewModel.loadStudents()
+        ceremonyViewModel.loadCeremonies()
+    }
 
-    val assignedCount by remember { snapshotFlow { DataRepository.students.count { it.assigned } } }
-        .collectAsState(initial = DataRepository.students.count { it.assigned })
-
+    // ===== Métricas =====
+    val ceremonyCount = ceremonies.size
+    val studentCount = students.size
+    val assignedCount = students.count { it.assigned }
     val pendingCount = studentCount - assignedCount
 
+    // ===== Estados UI =====
     var showCeremoniesDialog by remember { mutableStateOf(false) }
     var showStudentsDialog by remember { mutableStateOf(false) }
     var showPendingDialog by remember { mutableStateOf(false) }
     var showAssignedDialog by remember { mutableStateOf(false) }
-
-    // Menú de tres puntos
     var expandedMenu by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
+    // ===== Layout =====
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,7 +74,7 @@ fun DashboardSection(navController: NavController) {
                 Text("Resumen General", style = MaterialTheme.typography.headlineSmall)
             }
 
-            // Botón de tres puntos
+            // Menú superior
             Box {
                 IconButton(onClick = { expandedMenu = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Menú")
@@ -105,24 +105,28 @@ fun DashboardSection(navController: NavController) {
         }
     }
 
-    // Diálogos
+    // ===== Diálogos =====
     if (showCeremoniesDialog) {
-        CeremoniesDialog(DataRepository.ceremonies) { showCeremoniesDialog = false }
+        CeremoniesDialog(ceremonies) { showCeremoniesDialog = false }
     }
 
     if (showStudentsDialog) {
-        StudentsDialog("Listado de Estudiantes", DataRepository.students, showPlace = true) { showStudentsDialog = false }
+        StudentsDialog("Listado de Estudiantes", students, showPlace = true) { showStudentsDialog = false }
     }
 
     if (showPendingDialog) {
-        StudentsDialog("Listado de Estudiantes Pendientes", DataRepository.students.filter { !it.assigned }, showPlace = false) { showPendingDialog = false }
+        StudentsDialog(
+            "Listado de Estudiantes Pendientes",
+            students.filter { !it.assigned },
+            showPlace = false
+        ) { showPendingDialog = false }
     }
 
     if (showAssignedDialog) {
-        AssignedSeatsDialog(onClose = { showAssignedDialog = false })
+        AssignedSeatsDialog(students, onClose = { showAssignedDialog = false })
     }
 
-    // Confirmación de cierre de sesión
+    // ===== Logout =====
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
@@ -131,23 +135,17 @@ fun DashboardSection(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutConfirm = false
-                    // Redirigir al login y limpiar la pila de navegación
                     navController.navigate("login") {
                         popUpTo("login") { inclusive = true }
                     }
-                }) {
-                    Text("Sí")
-                }
+                }) { Text("Sí") }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text("No")
-                }
+                TextButton(onClick = { showLogoutConfirm = false }) { Text("No") }
             }
         )
     }
 }
-
 
 @Composable
 fun MetricCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: (() -> Unit)? = null) {
@@ -173,7 +171,6 @@ fun MetricCard(title: String, value: String, icon: androidx.compose.ui.graphics.
 }
 
 /* ================== Diálogo de Ceremonias ================== */
-
 @Composable
 private fun CeremoniesDialog(ceremonies: List<Ceremony>, onClose: () -> Unit) {
     AlertDialog(
@@ -204,7 +201,6 @@ private fun CeremonyRow(c: Ceremony) {
 }
 
 /* ================== Diálogo de Estudiantes ================== */
-
 @Composable
 private fun StudentsDialog(title: String, students: List<Student>, showPlace: Boolean, onClose: () -> Unit) {
     AlertDialog(
@@ -239,12 +235,9 @@ private fun StudentRow(s: Student, showPlace: Boolean) {
 }
 
 /* ================== Diálogo de Asignados ================== */
-
 @Composable
-private fun AssignedSeatsDialog(onClose: () -> Unit) {
-    val assigned by remember {
-        derivedStateOf { DataRepository.students.filter { it.assigned && it.place != null } }
-    }
+private fun AssignedSeatsDialog(students: List<Student>, onClose: () -> Unit) {
+    val assigned = students.filter { it.assigned && it.place != null }
     var selected by remember { mutableStateOf<Student?>(null) }
 
     AlertDialog(
@@ -252,23 +245,19 @@ private fun AssignedSeatsDialog(onClose: () -> Unit) {
         confirmButton = { TextButton(onClick = onClose) { Text("Cerrar") } },
         title = { Text("Estudiantes Asignados") },
         text = {
-            // SIN horizontalScroll; altura fija para evitar medidas infinitas
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(320.dp) // altura fija = seguro en AlertDialog
+                        .height(320.dp)
                 ) {
                     items(assigned) { student ->
                         Surface(
                             color = Color(0xFF4CAF50),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = MaterialTheme.shapes.medium,
                             modifier = Modifier
                                 .size(60.dp)
                                 .clickable { selected = student },
@@ -290,14 +279,11 @@ private fun AssignedSeatsDialog(onClose: () -> Unit) {
     }
 }
 
-
 @Composable
 private fun AssignedStudentDetailDialog(student: Student, onClose: () -> Unit) {
     AlertDialog(
         onDismissRequest = onClose,
-        confirmButton = {
-            TextButton(onClick = onClose) { Text("Cerrar") }
-        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Cerrar") } },
         title = { Text("Detalles del Estudiante") },
         text = {
             Column {
@@ -309,13 +295,10 @@ private fun AssignedStudentDetailDialog(student: Student, onClose: () -> Unit) {
                         Text(student.faculty, style = MaterialTheme.typography.bodySmall)
                     }
                     AssistChip(
-                        onClick = { },
+                        onClick = {},
                         label = { Text("Asignado") },
                         leadingIcon = {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null
-                            )
+                            Icon(Icons.Default.CheckCircle, contentDescription = null)
                         },
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = Color(0xFFDFF3E0),
@@ -324,10 +307,7 @@ private fun AssignedStudentDetailDialog(student: Student, onClose: () -> Unit) {
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text("Asiento:")
                     Text(student.place ?: "-", fontWeight = FontWeight.Medium)
                 }
@@ -335,5 +315,3 @@ private fun AssignedStudentDetailDialog(student: Student, onClose: () -> Unit) {
         }
     )
 }
-
-

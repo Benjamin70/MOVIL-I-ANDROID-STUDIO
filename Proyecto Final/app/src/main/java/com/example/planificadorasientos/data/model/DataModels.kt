@@ -1,50 +1,43 @@
-package com.example.planificadorasientos.data
+package com.example.planificadorasientos.data.model
 
 import androidx.compose.runtime.mutableStateListOf
-import kotlin.random.Random
+
+// ---------- MODELOS DE DATOS ----------
 
 data class Admin(
-    val username: String,
-    val password: String,
-    val name: String
+    val username: String = "",
+    val password: String = "",
+    val name: String = ""
 )
 
 data class Student(
-    val id: String,
-    val name: String,
-    val faculty: String,
-    val career: String,
+    val id: String = "",
+    val name: String = "",
+    val faculty: String = "",
+    val career: String = "",
     val assigned: Boolean = false,
     val place: String? = null
 )
 
 data class Ceremony(
-    val id: String,
-    val faculty: String,
-    val date: String,
-    val time: String
+    val id: String = "",
+    val faculty: String = "",
+    val date: String = "",
+    val time: String = ""
 )
+
+// ---------- REPOSITORIO LOCAL TEMPORAL ----------
 
 object DataRepository {
 
-    // --------- Datos base (como ya tenías) ---------
-    val students = mutableStateListOf(
-        Student("2021001", "Luis Gómez", "Ingeniería", "Sistemas"),
-        Student("2021002", "Ana Pérez", "Derecho", "Abogado"),
-        Student("2021003", "Juan Torres", "Ingeniería", "Industrial"),
-        Student("2021004", "María García", "Derecho", "Abogado Litigante"),
-        Student("2021005", "Carlos Díaz", "Derecho", "Abogado Penal"),
-        Student("2021006", "Pedro Peña", "Ingeniería", "Electrónica"),
-        Student("2021007", "Lucía Reyes", "Derecho", "Abogado Legal")
-    )
-
-    val ceremonies = mutableStateListOf(
-        Ceremony("1", "Ingeniería", "2025-07-20", "10:00 AM"),
-        Ceremony("2", "Derecho", "2025-07-20", "02:00 PM")
-    )
+    // 🔹 Estas listas ahora se llenan desde Firebase al iniciar la app (por los ViewModel)
+    val students = mutableStateListOf<Student>()
+    val ceremonies = mutableStateListOf<Ceremony>()
 
     val uniqueFaculties: List<String>
         get() = students.map { it.faculty }.distinct()
+
+    // -------- CRUD LOCAL (usado por los ViewModel) --------
 
     fun addStudent(student: Student) { students.add(student) }
 
@@ -64,62 +57,46 @@ object DataRepository {
 
     fun removeCeremonyById(id: String) { ceremonies.removeIf { it.id == id } }
 
-    // --------- Lógica de asignación A-01 … Z-12 ---------
+    // -------- LÓGICA DE ASIGNACIÓN --------
 
-    // Letras de secciones y capacidad fija por sección
     private val sectionsLetters: List<Char> = ('A'..'Z').toList()
     private const val capacityPerSection: Int = 12
-
-    // Ocupación actual: por cada sección, filas ocupadas (1..12)
     private val seatingState: MutableMap<Char, MutableSet<Int>> = mutableMapOf()
 
-    /**
-     * Asigna aleatoriamente una sección (A..Z) con cupo y una fila libre (1..12),
-     * actualiza el estudiante (assigned = true, place = "X-YY") y devuelve el place.
-     * Si ya estaba asignado, devuelve su place actual. Si no hay cupos, devuelve "".
-     */
+    /** Asigna aleatoriamente una sección (A..Z) y fila (1..12) a un estudiante. */
     fun assignRandomPlace(studentId: String): String {
         val student = students.firstOrNull { it.id == studentId } ?: return ""
         if (student.assigned && student.place != null) return student.place
 
-        // Secciones con cupo disponible
         val availableSections = sectionsLetters.filter { letter ->
             val occupied = seatingState[letter]?.size ?: 0
             occupied < capacityPerSection
         }
         if (availableSections.isEmpty()) return ""
 
-        // Escoger sección y fila libres al azar
         val section = availableSections.random()
         val occupiedRows = seatingState.getOrPut(section) { mutableSetOf() }
         val freeRows = (1..capacityPerSection).filter { it !in occupiedRows }
-        if (freeRows.isEmpty()) return "" // defensa extra
+        if (freeRows.isEmpty()) return ""
         val row = freeRows.random()
 
-        // Marcar ocupación y actualizar estudiante
         occupiedRows.add(row)
         val place = formatPlace(section, row)
         updateStudent(student.copy(assigned = true, place = place))
         return place
     }
 
-    /**
-     * Desasigna el lugar del estudiante (si tenía), libera la fila en seatingState
-     * y marca assigned = false, place = null.
-     */
+    /** Libera el asiento de un estudiante. */
     fun unassignPlace(studentId: String) {
         val student = students.firstOrNull { it.id == studentId } ?: return
         val place = student.place ?: return
-
         val parsed = parsePlace(place) ?: return
         val (section, row) = parsed
         seatingState[section]?.remove(row)
         updateStudent(student.copy(assigned = false, place = null))
     }
 
-    /**
-     * Limpia toda la ocupación y deja a todos los estudiantes sin asignación.
-     */
+    /** Reinicia todos los asientos asignados. */
     fun resetSeating() {
         seatingState.clear()
         val snapshot = students.toList()
@@ -130,9 +107,7 @@ object DataRepository {
         }
     }
 
-    /**
-     * Devuelve disponibilidad por sección: cupos libres = 12 - ocupados.
-     */
+    /** Devuelve la disponibilidad de cupos por sección. */
     fun getAvailability(): Map<Char, Int> {
         return sectionsLetters.associateWith { letter ->
             val occupied = seatingState[letter]?.size ?: 0
@@ -140,7 +115,7 @@ object DataRepository {
         }
     }
 
-    // --------- Helpers ---------
+    // -------- HELPERS --------
 
     private fun formatPlace(section: Char, row: Int): String {
         val rowStr = row.toString().padStart(2, '0')
@@ -148,7 +123,6 @@ object DataRepository {
     }
 
     private fun parsePlace(place: String): Pair<Char, Int>? {
-        // Formato esperado: X-YY
         if (place.length !in 4..5) return null
         val section = place.first()
         val dashIndex = place.indexOf('-')

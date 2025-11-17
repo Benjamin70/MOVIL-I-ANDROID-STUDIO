@@ -1,4 +1,4 @@
-package com.example.planificadorasientos.ui.screens
+package com.example.planificadorasientos.ui.view
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -15,8 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.DataRepository
-import com.example.planificadorasientos.data.Student
+import com.example.planificadorasientos.data.model.Student
+import com.example.planificadorasientos.data.model.DataRepository
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

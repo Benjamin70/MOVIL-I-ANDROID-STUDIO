@@ -1,4 +1,4 @@
-package com.example.planificadorasientos.ui.screens
+package com.example.planificadorasientos.ui.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

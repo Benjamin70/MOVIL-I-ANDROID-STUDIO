@@ -1,4 +1,4 @@
-package com.example.planificadorasientos.ui.screens
+package com.example.planificadorasientos.ui.view
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,14 +8,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.StaticData
-import com.example.planificadorasientos.data.DataRepository
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.example.planificadorasientos.data.model.DataRepository
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,8 +24,13 @@ fun LoginScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isAdmin by remember { mutableStateOf(true) }
+    var isRegisterMode by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) } // ✅ NUEVO
+
+    val auth = FirebaseAuth.getInstance()
 
     Column(
         modifier = Modifier
@@ -70,7 +76,9 @@ fun LoginScreen(navController: NavController) {
                     selected = isAdmin,
                     onClick = {
                         isAdmin = true
-                        username = ""; password = ""; showError = false
+                        username = ""
+                        password = ""
+                        showError = false
                     },
                     label = { Text("Administrador") },
                     leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
@@ -81,7 +89,8 @@ fun LoginScreen(navController: NavController) {
                     selected = !isAdmin,
                     onClick = {
                         isAdmin = false
-                        password = ""; showError = false
+                        password = ""
+                        showError = false
                     },
                     label = { Text("Estudiante") },
                     leadingIcon = { Icon(Icons.Default.Person, null) },
@@ -92,11 +101,10 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(Modifier.height(24.dp))
 
-        // Usuario / ID
         OutlinedTextField(
             value = username,
             onValueChange = { username = it; showError = false },
-            label = { Text(if (isAdmin) "Usuario" else "ID Estudiante") },
+            label = { Text(if (isAdmin) "Correo electrónico" else "ID Estudiante") },
             leadingIcon = { Icon(Icons.Default.Person, null) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -105,7 +113,6 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Contraseña SOLO para Admin
         if (isAdmin) {
             OutlinedTextField(
                 value = password,
@@ -117,8 +124,21 @@ fun LoginScreen(navController: NavController) {
                 singleLine = true,
                 isError = showError
             )
-            Spacer(Modifier.height(8.dp))
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { isRegisterMode = !isRegisterMode }) {
+                    Text(
+                        if (isRegisterMode) "Ya tengo cuenta (Iniciar sesión)"
+                        else "¿No tienes cuenta? Regístrate",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
+
+        Spacer(Modifier.height(16.dp))
 
         if (showError) {
             Text(
@@ -130,24 +150,53 @@ fun LoginScreen(navController: NavController) {
             Spacer(Modifier.height(8.dp))
         }
 
-        Spacer(Modifier.height(16.dp))
-
         Button(
             onClick = {
+                isLoading = true
                 if (isAdmin) {
-                    val admin = StaticData.ADMINS.find { it.username == username && it.password == password }
-                    if (admin != null) {
-                        navController.navigate("admin_dashboard")
+                    val email = username.trim()
+                    val pass = password.trim()
+
+                    if (isRegisterMode) {
+                        // 🔹 Registro de nuevo admin
+                        auth.createUserWithEmailAndPassword(email, pass)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    // ✅ Mostrar mensaje y volver a modo login
+                                    showSuccessDialog = true
+                                    isRegisterMode = false
+                                    username = ""
+                                    password = ""
+                                } else {
+                                    errorMessage =
+                                        "Error al registrarse: ${task.exception?.localizedMessage}"
+                                    showError = true
+                                }
+                            }
                     } else {
-                        errorMessage = "Usuario o contraseña incorrectos"
-                        showError = true
+                        // 🔹 Inicio de sesión normal
+                        auth.signInWithEmailAndPassword(email, pass)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    navController.navigate("admin_dashboard") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                } else {
+                                    errorMessage =
+                                        "Credenciales inválidas o usuario no registrado"
+                                    showError = true
+                                }
+                            }
                     }
                 } else {
-                    // Normalizar para aceptar con o sin guion
+                    // 🔸 Estudiante
                     val inputId = username.trim().replace("-", "")
                     val student = DataRepository.students.find {
                         it.id.replace("-", "").equals(inputId, ignoreCase = true)
                     }
+                    isLoading = false
                     if (student != null) {
                         navController.navigate("student_dashboard/${student.id}")
                     } else {
@@ -160,10 +209,19 @@ fun LoginScreen(navController: NavController) {
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            enabled = if (isAdmin) username.isNotBlank() && password.isNotBlank()
+            enabled = if (isAdmin)
+                username.isNotBlank() && password.isNotBlank()
             else username.isNotBlank()
         ) {
-            Text("Iniciar Sesión", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+            } else {
+                Text(
+                    text = if (isAdmin && isRegisterMode) "Registrarse" else "Iniciar Sesión",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -180,15 +238,28 @@ fun LoginScreen(navController: NavController) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = if (isAdmin) {
-                        "• admin / 123\n• coord / 456"
-                    } else {
-                        "• ID: 2021-001, 2021-002, 2021-003"
-                    },
+                    text = if (isAdmin)
+                        "Crea tu cuenta con correo y contraseña."
+                    else
+                        "• ID: 2021-001, 2021-002, 2021-003",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
         }
+    }
+
+    // ✅ Diálogo de éxito al registrar
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showSuccessDialog = false }) {
+                    Text("Aceptar")
+                }
+            },
+            title = { Text("Registro exitoso") },
+            text = { Text("Usuario registrado exitosamente. Ahora puede iniciar sesión.") }
+        )
     }
 }

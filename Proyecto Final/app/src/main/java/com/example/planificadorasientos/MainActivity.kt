@@ -11,10 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.planificadorasientos.ui.screens.AdminDashboard
-import com.example.planificadorasientos.ui.screens.LoginScreen
-import com.example.planificadorasientos.ui.screens.SplashScreen
-import com.example.planificadorasientos.ui.screens.StudentDashboard
+import com.example.planificadorasientos.ui.view.AdminDashboard
+import com.example.planificadorasientos.ui.view.LoginScreen
+import com.example.planificadorasientos.ui.view.SplashScreen
+import com.example.planificadorasientos.ui.view.StudentDashboard
 import com.example.planificadorasientos.ui.theme.PlanificadorAsientosTheme
 
 class MainActivity : ComponentActivity() {

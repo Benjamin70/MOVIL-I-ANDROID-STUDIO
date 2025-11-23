@@ -1,6 +1,6 @@
 package com.example.planificadorasientos.data
 
-import com.example.planificadorasientos.data.model.Admin
+import com.example.planificadorasientos.domain.model.Admin
 
 object StaticData {
     // 🔐 Solo dejamos admins para el login temporal

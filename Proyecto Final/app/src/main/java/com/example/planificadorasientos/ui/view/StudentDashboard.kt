@@ -3,9 +3,9 @@ package com.example.planificadorasientos.ui.view
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.ChairAlt
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,10 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.model.Student
-import com.example.planificadorasientos.data.model.DataRepository
-
+import com.example.planificadorasientos.domain.model.Student
+import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,22 +25,26 @@ fun StudentDashboard(
     navController: NavController,
     studentId: String
 ) {
-    var showExitDialog by remember { mutableStateOf(false) }
+    val studentViewModel: StudentViewModel = viewModel()
+    val students by studentViewModel.students.collectAsState()
 
-    // ===== Estado de búsqueda / alumno seleccionado =====
+    var showExitDialog by remember { mutableStateOf(false) }
     var queryId by remember { mutableStateOf(studentId) }
     var lookedUp by remember { mutableStateOf(false) }
+
+    // Buscamos el estudiante por ID normalizado
     var student by remember {
-        mutableStateOf(
-            DataRepository.students.find { normalizeId(it.id) == normalizeId(studentId) }
-        )
+        mutableStateOf<Student?>(null)
     }
 
-    // si cambia el parámetro de la ruta, actualizamos todo
-    LaunchedEffect(studentId) {
-        queryId = studentId
-        student = DataRepository.students.find { normalizeId(it.id) == normalizeId(studentId) }
-        lookedUp = false
+    // Al cargar el componente, traer estudiantes
+    LaunchedEffect(Unit) {
+        studentViewModel.loadStudents()
+    }
+
+    // Cada vez que cambia la lista o el ID buscado, actualizamos el alumno
+    LaunchedEffect(students, queryId) {
+        student = students.find { normalizeId(it.id) == normalizeId(queryId) }
     }
 
     BackHandler { showExitDialog = true }
@@ -104,7 +108,7 @@ fun StudentDashboard(
                 }
                 IconButton(onClick = { showExitDialog = true }) {
                     Icon(
-                        Icons.Default.ExitToApp,
+                        Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Logout",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -114,7 +118,7 @@ fun StudentDashboard(
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== Buscador por ID (filtro) =====
+        // ===== Buscador por ID =====
         OutlinedTextField(
             value = queryId,
             onValueChange = { queryId = it },
@@ -126,7 +130,7 @@ fun StudentDashboard(
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = {
-                student = DataRepository.students.find { normalizeId(it.id) == normalizeId(queryId) }
+                student = students.find { normalizeId(it.id) == normalizeId(queryId) }
                 lookedUp = true
             },
             enabled = queryId.isNotBlank(),
@@ -143,7 +147,7 @@ fun StudentDashboard(
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== Tarjeta de "Evento" -> Facultad y Carrera =====
+        // ===== Tarjeta de Información Académica =====
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
@@ -191,7 +195,7 @@ fun StudentDashboard(
 
         Spacer(Modifier.height(16.dp))
 
-        // ===== Tarjeta de Asiento =====
+        // ===== Tarjeta de Asiento Asignado =====
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -234,7 +238,6 @@ fun StudentDashboard(
         }
     }
 }
-
 
 private fun normalizeId(raw: String): String {
     val digits = raw.filter { it.isDigit() }

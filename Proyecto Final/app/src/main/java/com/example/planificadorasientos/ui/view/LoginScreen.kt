@@ -14,13 +14,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.model.DataRepository
+import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavController) {
+    val studentViewModel: StudentViewModel = viewModel()
+    val students by studentViewModel.students.collectAsState()
+
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isAdmin by remember { mutableStateOf(true) }
@@ -28,9 +32,14 @@ fun LoginScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
-    var showSuccessDialog by remember { mutableStateOf(false) } // ✅ NUEVO
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     val auth = FirebaseAuth.getInstance()
+
+    // Cargar estudiantes al abrir la pantalla
+    LaunchedEffect(Unit) {
+        studentViewModel.loadStudents()
+    }
 
     Column(
         modifier = Modifier
@@ -156,14 +165,12 @@ fun LoginScreen(navController: NavController) {
                 if (isAdmin) {
                     val email = username.trim()
                     val pass = password.trim()
-
                     if (isRegisterMode) {
-                        // 🔹 Registro de nuevo admin
+                        // 🔹 Registrar nuevo administrador
                         auth.createUserWithEmailAndPassword(email, pass)
                             .addOnCompleteListener { task ->
                                 isLoading = false
                                 if (task.isSuccessful) {
-                                    // ✅ Mostrar mensaje y volver a modo login
                                     showSuccessDialog = true
                                     isRegisterMode = false
                                     username = ""
@@ -175,7 +182,7 @@ fun LoginScreen(navController: NavController) {
                                 }
                             }
                     } else {
-                        // 🔹 Inicio de sesión normal
+                        // 🔹 Iniciar sesión admin
                         auth.signInWithEmailAndPassword(email, pass)
                             .addOnCompleteListener { task ->
                                 isLoading = false
@@ -184,8 +191,7 @@ fun LoginScreen(navController: NavController) {
                                         popUpTo("login") { inclusive = true }
                                     }
                                 } else {
-                                    errorMessage =
-                                        "Credenciales inválidas o usuario no registrado"
+                                    errorMessage = "Credenciales inválidas o usuario no registrado"
                                     showError = true
                                 }
                             }
@@ -193,7 +199,7 @@ fun LoginScreen(navController: NavController) {
                 } else {
                     // 🔸 Estudiante
                     val inputId = username.trim().replace("-", "")
-                    val student = DataRepository.students.find {
+                    val student = students.find {
                         it.id.replace("-", "").equals(inputId, ignoreCase = true)
                     }
                     isLoading = false
@@ -249,7 +255,6 @@ fun LoginScreen(navController: NavController) {
         }
     }
 
-    // ✅ Diálogo de éxito al registrar
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = { showSuccessDialog = false },

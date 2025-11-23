@@ -18,30 +18,32 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.model.Ceremony
-import com.example.planificadorasientos.data.model.DataRepository
+import com.example.planificadorasientos.domain.model.Ceremony
 import com.example.planificadorasientos.ui.viewmodel.CeremonyViewModel
+import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 import java.util.*
 
 @Composable
 fun CeremoniesSection(navController: NavController) {
     val context = LocalContext.current
-
-    // ViewModel + datos desde Firebase
     val ceremonyViewModel: CeremonyViewModel = viewModel()
-    val ceremonies by ceremonyViewModel.ceremonies.collectAsState()
+    val ceremonies by ceremonyViewModel.ceremonies.collectAsState(initial = emptyList())
 
-    // Cargar datos al iniciar
+    val studentViewModel: StudentViewModel = viewModel()
+    val students by studentViewModel.students.collectAsState(initial = emptyList())
+
+    // Cargar ceremonias y estudiantes al abrir
     LaunchedEffect(Unit) {
         ceremonyViewModel.loadCeremonies()
+        studentViewModel.loadStudents()
     }
+
+    // Facultades únicas obtenidas desde Firebase
+    val facultiesList = students.map { it.faculty.trim() }.distinct()
 
     var showDialog by remember { mutableStateOf(false) }
     var editingCeremony by remember { mutableStateOf<Ceremony?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-
-    // Facultades (tomadas desde DataRepository solo como referencia local)
-    val facultiesList = DataRepository.uniqueFaculties
 
     Column(
         modifier = Modifier
@@ -189,7 +191,7 @@ fun DialogNuevaCeremonia(
         confirmButton = {
             TextButton(onClick = {
                 val id = initialCeremony?.id ?: System.currentTimeMillis().toString()
-                onSave(Ceremony(id, faculty, date, time))
+                onSave(Ceremony(id = id, faculty = faculty, date = date, time = time))
             }) { Text("Guardar") }
         },
         dismissButton = {
@@ -198,7 +200,7 @@ fun DialogNuevaCeremonia(
         title = { Text(if (initialCeremony == null) "Nueva Ceremonia" else "Editar Ceremonia") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Dropdown Facultad
+                // Dropdown Facultad (dinámico desde Firebase)
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }

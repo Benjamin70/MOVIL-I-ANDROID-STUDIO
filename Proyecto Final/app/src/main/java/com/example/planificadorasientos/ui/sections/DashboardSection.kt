@@ -19,33 +19,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.model.Ceremony
-import com.example.planificadorasientos.data.model.Student
+import com.example.planificadorasientos.domain.model.Ceremony
+import com.example.planificadorasientos.domain.model.Student
 import com.example.planificadorasientos.ui.viewmodel.CeremonyViewModel
 import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 
 @Composable
 fun DashboardSection(navController: NavController) {
-    // ===== ViewModels =====
     val studentViewModel: StudentViewModel = viewModel()
     val ceremonyViewModel: CeremonyViewModel = viewModel()
 
-    val students by studentViewModel.students.collectAsState()
-    val ceremonies by ceremonyViewModel.ceremonies.collectAsState()
+    val students by studentViewModel.students.collectAsState(initial = emptyList())
+    val ceremonies by ceremonyViewModel.ceremonies.collectAsState(initial = emptyList())
 
-    // Cargar datos al iniciar
     LaunchedEffect(Unit) {
         studentViewModel.loadStudents()
         ceremonyViewModel.loadCeremonies()
     }
 
-    // ===== Métricas =====
     val ceremonyCount = ceremonies.size
     val studentCount = students.size
     val assignedCount = students.count { it.assigned }
     val pendingCount = studentCount - assignedCount
 
-    // ===== Estados UI =====
     var showCeremoniesDialog by remember { mutableStateOf(false) }
     var showStudentsDialog by remember { mutableStateOf(false) }
     var showPendingDialog by remember { mutableStateOf(false) }
@@ -53,7 +49,6 @@ fun DashboardSection(navController: NavController) {
     var expandedMenu by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
-    // ===== Layout =====
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,7 +69,6 @@ fun DashboardSection(navController: NavController) {
                 Text("Resumen General", style = MaterialTheme.typography.headlineSmall)
             }
 
-            // Menú superior
             Box {
                 IconButton(onClick = { expandedMenu = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Menú")
@@ -105,7 +99,6 @@ fun DashboardSection(navController: NavController) {
         }
     }
 
-    // ===== Diálogos =====
     if (showCeremoniesDialog) {
         CeremoniesDialog(ceremonies) { showCeremoniesDialog = false }
     }
@@ -126,7 +119,6 @@ fun DashboardSection(navController: NavController) {
         AssignedSeatsDialog(students, onClose = { showAssignedDialog = false })
     }
 
-    // ===== Logout =====
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
@@ -170,7 +162,6 @@ fun MetricCard(title: String, value: String, icon: androidx.compose.ui.graphics.
     }
 }
 
-/* ================== Diálogo de Ceremonias ================== */
 @Composable
 private fun CeremoniesDialog(ceremonies: List<Ceremony>, onClose: () -> Unit) {
     AlertDialog(
@@ -200,7 +191,6 @@ private fun CeremonyRow(c: Ceremony) {
     }
 }
 
-/* ================== Diálogo de Estudiantes ================== */
 @Composable
 private fun StudentsDialog(title: String, students: List<Student>, showPlace: Boolean, onClose: () -> Unit) {
     AlertDialog(
@@ -234,7 +224,6 @@ private fun StudentRow(s: Student, showPlace: Boolean) {
     }
 }
 
-/* ================== Diálogo de Asignados ================== */
 @Composable
 private fun AssignedSeatsDialog(students: List<Student>, onClose: () -> Unit) {
     val assigned = students.filter { it.assigned && it.place != null }
@@ -245,28 +234,26 @@ private fun AssignedSeatsDialog(students: List<Student>, onClose: () -> Unit) {
         confirmButton = { TextButton(onClick = onClose) { Text("Cerrar") } },
         title = { Text("Estudiantes Asignados") },
         text = {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(320.dp)
-                ) {
-                    items(assigned) { student ->
-                        Surface(
-                            color = Color(0xFF4CAF50),
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clickable { selected = student },
-                            tonalElevation = 2.dp,
-                            shadowElevation = 2.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                Text("🧑‍🎓", fontSize = 24.sp)
-                            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+            ) {
+                items(assigned) { student ->
+                    Surface(
+                        color = Color(0xFF4CAF50),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clickable { selected = student },
+                        tonalElevation = 2.dp,
+                        shadowElevation = 2.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text("🧑‍🎓", fontSize = 24.sp)
                         }
                     }
                 }

@@ -1,7 +1,7 @@
 package com.example.planificadorasientos.data.repository
 
-import com.example.planificadorasientos.data.model.Student
-import com.example.planificadorasientos.data.model.Ceremony
+import com.example.planificadorasientos.domain.model.Student
+import com.example.planificadorasientos.domain.model.Ceremony
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.tasks.await
@@ -9,12 +9,12 @@ import kotlinx.coroutines.tasks.await
 /**
  * FirebaseRepository
  * ------------------
- * Clase encargada de manejar la comunicación con Firebase Realtime Database.
- * Gestiona las operaciones CRUD de estudiantes y ceremonias.
+ * Encargado de interactuar directamente con Firebase Realtime Database.
+ * Provee métodos CRUD genéricos para Student y Ceremony.
+ * Esta clase NO conoce la UI ni la lógica de negocio.
  */
 class FirebaseRepository {
 
-    // Referencia a la base de datos de Firebase
     private val db: DatabaseReference = FirebaseDatabase.getInstance().reference
 
     // ------------------- STUDENTS -------------------

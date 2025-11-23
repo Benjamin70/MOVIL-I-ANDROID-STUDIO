@@ -18,16 +18,13 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.planificadorasientos.data.model.Student
-import com.example.planificadorasientos.data.model.DataRepository
+import com.example.planificadorasientos.domain.model.Student
 import com.example.planificadorasientos.ui.viewmodel.StudentViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentsSection(navController: NavController) {
     val context = LocalContext.current
-
-    // ViewModel + datos desde Firebase
     val studentViewModel: StudentViewModel = viewModel()
     val students by studentViewModel.students.collectAsState()
 
@@ -37,7 +34,6 @@ fun StudentsSection(navController: NavController) {
 
     var showDialog by remember { mutableStateOf(false) }
     var editingStudent by remember { mutableStateOf<Student?>(null) }
-
     var showNoAssignedDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showNoCapacityDialog by remember { mutableStateOf(false) }
@@ -48,7 +44,6 @@ fun StudentsSection(navController: NavController) {
     var selectedFaculty by remember { mutableStateOf<String?>(null) }
     var selectedCareer by remember { mutableStateOf<String?>(null) }
     var showOnlyUnassigned by remember { mutableStateOf(false) }
-
     val selectedIds = remember { mutableStateListOf<String>() }
 
     val filteredStudents = students.filter {
@@ -58,9 +53,7 @@ fun StudentsSection(navController: NavController) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
+        modifier = Modifier.fillMaxSize().padding(24.dp)
     ) {
         // ===== HEADER =====
         Row(
@@ -75,11 +68,8 @@ fun StudentsSection(navController: NavController) {
             }
 
             var menuExpanded by remember { mutableStateOf(false) }
-
             Box(
-                modifier = Modifier
-                    .wrapContentSize(Alignment.TopEnd)
-                    .zIndex(1f)
+                modifier = Modifier.wrapContentSize(Alignment.TopEnd).zIndex(1f)
             ) {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Menú")
@@ -95,11 +85,8 @@ fun StudentsSection(navController: NavController) {
                         onClick = {
                             menuExpanded = false
                             val studentsToExport = students.filter { it.assigned }
-                            if (studentsToExport.isEmpty()) {
-                                showNoAssignedDialog = true
-                            } else {
-                                exportStudentsAsPlainText(context, studentsToExport)
-                            }
+                            if (studentsToExport.isEmpty()) showNoAssignedDialog = true
+                            else exportStudentsAsPlainText(context, studentsToExport)
                         }
                     )
                     DropdownMenuItem(
@@ -114,11 +101,9 @@ fun StudentsSection(navController: NavController) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         DropdownSelector("Facultad", allFaculties, selectedFaculty) { selectedFaculty = it }
         Spacer(modifier = Modifier.height(8.dp))
         DropdownSelector("Carrera", allCareers, selectedCareer) { selectedCareer = it }
-
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -130,107 +115,63 @@ fun StudentsSection(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         // ===== BOTONES SUPERIORES =====
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                Button(
-                    onClick = {
-                        editingStudent = null
-                        showDialog = true
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Agregar")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nuevo Estudiante")
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = { editingStudent = null; showDialog = true },
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Agregar")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Nuevo Estudiante")
             }
 
-            Box(modifier = Modifier.weight(1f)) {
-                Button(
-                    onClick = {
-                        var anyFailed = false
-                        selectedIds.forEach { id ->
-                            val place = DataRepository.assignRandomPlace(id)
-                            if (place.isNotEmpty()) {
-                                val updatedStudent = students.find { it.id == id }?.copy(
-                                    assigned = true,
-                                    place = place
-                                )
-                                if (updatedStudent != null) {
-                                    studentViewModel.updateStudent(updatedStudent)
-                                }
-                            } else {
-                                anyFailed = true
-                            }
-                        }
-                        selectedIds.clear()
-                        if (anyFailed) showNoCapacityDialog = true
-                    },
-                    enabled = selectedIds.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = "Asignar")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Asignar Seleccionados")
-                }
+            Button(
+                onClick = {
+                    selectedIds.forEach { id -> studentViewModel.assignSeat(id) }
+                    selectedIds.clear()
+                },
+                enabled = selectedIds.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = "Asignar")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Asignar Seleccionados")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ===== LISTA DE ESTUDIANTES =====
-        Box(modifier = Modifier.weight(1f)) {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filteredStudents) { student ->
-                    val isSelected = selectedIds.contains(student.id)
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Row(modifier = Modifier.padding(16.dp)) {
-                            Column {
-                                Checkbox(
-                                    checked = isSelected,
-                                    onCheckedChange = { checked ->
-                                        if (checked) selectedIds.add(student.id)
-                                        else selectedIds.remove(student.id)
-                                    }
-                                )
+        // ===== LISTA =====
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+            items(filteredStudents) { student ->
+                val isSelected = selectedIds.contains(student.id)
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Row(modifier = Modifier.padding(16.dp)) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { checked ->
+                                if (checked) selectedIds.add(student.id)
+                                else selectedIds.remove(student.id)
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("ID: ${student.id}")
-                                Text("Nombre: ${student.name}")
-                                Text("Facultad: ${student.faculty}")
-                                Text("Carrera: ${student.career}")
-                                Text("Asignado: ${if (student.assigned) "Sí" else "No"}")
-                                if (student.assigned && student.place != null) {
-                                    Text("Lugar: ${student.place}")
-                                }
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("ID: ${student.id}")
+                            Text("Nombre: ${student.name}")
+                            Text("Facultad: ${student.faculty}")
+                            Text("Carrera: ${student.career}")
+                            Text("Asignado: ${if (student.assigned) "Sí" else "No"}")
+                            if (student.assigned && student.place != null) Text("Lugar: ${student.place}")
 
-                                Row(
-                                    horizontalArrangement = Arrangement.End,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    IconButton(onClick = {
-                                        editingStudent = student
-                                        showDialog = true
-                                    }) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Editar")
-                                    }
-                                    IconButton(onClick = {
-                                        studentViewModel.deleteStudent(student.id)
-                                        selectedIds.remove(student.id)
-                                    }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
-                                    }
+                            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                IconButton(onClick = { editingStudent = student; showDialog = true }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Editar")
+                                }
+                                IconButton(onClick = {
+                                    studentViewModel.deleteStudent(student.id)
+                                    selectedIds.remove(student.id)
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                                 }
                             }
                         }
@@ -244,58 +185,33 @@ fun StudentsSection(navController: NavController) {
             DialogNuevoEstudiante(
                 initialStudent = editingStudent,
                 onSave = { nuevo ->
-                    if (editingStudent == null) {
-                        studentViewModel.addStudent(nuevo)
-                    } else {
-                        studentViewModel.updateStudent(nuevo)
-                    }
+                    if (editingStudent == null) studentViewModel.addStudent(nuevo)
+                    else studentViewModel.updateStudent(nuevo)
                     showDialog = false
                 },
                 onCancel = { showDialog = false }
             )
         }
 
-        // ===== DIALOG SIN ASIGNADOS =====
         if (showNoAssignedDialog) {
             AlertDialog(
                 onDismissRequest = { showNoAssignedDialog = false },
-                confirmButton = {
-                    TextButton(onClick = { showNoAssignedDialog = false }) { Text("Aceptar") }
-                },
+                confirmButton = { TextButton(onClick = { showNoAssignedDialog = false }) { Text("Aceptar") } },
                 title = { Text("Exportar Estudiantes") },
                 text = { Text("No hay estudiantes asignados para exportar.") }
             )
         }
 
-        // ===== DIALOG SIN CAPACIDAD =====
-        if (showNoCapacityDialog) {
-            AlertDialog(
-                onDismissRequest = { showNoCapacityDialog = false },
-                confirmButton = {
-                    TextButton(onClick = { showNoCapacityDialog = false }) { Text("Aceptar") }
-                },
-                title = { Text("Sin cupos disponibles") },
-                text = { Text("No fue posible asignar a todos. Verifica la disponibilidad por sección.") }
-            )
-        }
-
-        // ===== DIALOG LOGOUT =====
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
                 confirmButton = {
                     TextButton(onClick = {
                         showLogoutDialog = false
-                        navController.navigate("login") {
-                            popUpTo(0)
-                        }
-                    }) {
-                        Text("Sí, salir")
-                    }
+                        navController.navigate("login") { popUpTo(0) }
+                    }) { Text("Sí, salir") }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showLogoutDialog = false }) { Text("Cancelar") }
-                },
+                dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancelar") } },
                 title = { Text("Cerrar sesión") },
                 text = { Text("¿Está seguro de que desea cerrar sesión?") }
             )
@@ -303,7 +219,6 @@ fun StudentsSection(navController: NavController) {
     }
 }
 
-// ===== EXPORTACIÓN =====
 fun exportStudentsAsPlainText(context: Context, students: List<Student>) {
     val content = buildString {
         students.forEachIndexed { index, it ->
@@ -316,26 +231,18 @@ fun exportStudentsAsPlainText(context: Context, students: List<Student>) {
             if (index != students.lastIndex) append("------------------------------\n")
         }
     }
-
     val shareIntent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_SUBJECT, "Lista de estudiantes asignados")
         putExtra(Intent.EXTRA_TEXT, content)
     }
-
     context.startActivity(Intent.createChooser(shareIntent, "Compartir estudiantes"))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DropdownSelector(
-    label: String,
-    options: List<String>,
-    selectedOption: String?,
-    onOptionSelected: (String?) -> Unit
-) {
+fun DropdownSelector(label: String, options: List<String>, selectedOption: String?, onOptionSelected: (String?) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
         OutlinedTextField(
             value = selectedOption ?: "",
@@ -345,16 +252,13 @@ fun DropdownSelector(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
-
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(text = { Text("Todas") }, onClick = {
-                onOptionSelected(null)
-                expanded = false
+                onOptionSelected(null); expanded = false
             })
             options.forEach { option ->
                 DropdownMenuItem(text = { Text(option) }, onClick = {
-                    onOptionSelected(option)
-                    expanded = false
+                    onOptionSelected(option); expanded = false
                 })
             }
         }
@@ -362,11 +266,7 @@ fun DropdownSelector(
 }
 
 @Composable
-fun DialogNuevoEstudiante(
-    initialStudent: Student? = null,
-    onSave: (Student) -> Unit,
-    onCancel: () -> Unit
-) {
+fun DialogNuevoEstudiante(initialStudent: Student? = null, onSave: (Student) -> Unit, onCancel: () -> Unit) {
     var id by remember { mutableStateOf(initialStudent?.id ?: "") }
     var name by remember { mutableStateOf(initialStudent?.name ?: "") }
     var faculty by remember { mutableStateOf(initialStudent?.faculty ?: "") }
@@ -374,14 +274,8 @@ fun DialogNuevoEstudiante(
 
     AlertDialog(
         onDismissRequest = onCancel,
-        confirmButton = {
-            TextButton(onClick = {
-                onSave(Student(id, name, faculty, career))
-            }) { Text("Guardar") }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) { Text("Cancelar") }
-        },
+        confirmButton = { TextButton(onClick = { onSave(Student(id, name, faculty, career)) }) { Text("Guardar") } },
+        dismissButton = { TextButton(onClick = onCancel) { Text("Cancelar") } },
         title = { Text(if (initialStudent == null) "Nuevo Estudiante" else "Editar Estudiante") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
